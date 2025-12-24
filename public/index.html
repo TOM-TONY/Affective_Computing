@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Spotify Web UI Player</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" defer></script>
+    <script src="https://sdk.scdn.co/spotify-player.js" defer></script>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="top">
+        <div class="brand">
+          <div class="logo">Playroom</div>
+          <div class="tag">Spotify Web UI Player</div>
+        </div>
+        <div id="status" class="status">Not connected</div>
+      </header>
+
+      <section id="login" class="card">
+        <h1>Connect your Spotify account</h1>
+        <p>
+          Stream directly in this browser with the Spotify Web Playback SDK.
+          Premium accounts are required by Spotify.
+        </p>
+        <a class="button" href="/login">Connect to Spotify</a>
+        <div class="note">
+          Tip: keep the Spotify desktop or mobile app open in case you need to
+          enable playback devices.
+        </div>
+      </section>
+
+      <section id="app" class="card hidden">
+        <div class="now">
+          <div class="now-label">Now Playing</div>
+          <div id="now-playing" class="now-track">No track selected</div>
+        </div>
+
+        <div class="controls">
+          <button id="toggle" class="button secondary" type="button">
+            Play / Pause
+          </button>
+          <button id="transfer" class="button ghost" type="button">
+            Transfer to Browser
+          </button>
+        </div>
+
+        <form id="search-form" class="search">
+          <input
+            id="search-input"
+            type="text"
+            name="query"
+            placeholder="Search tracks, artists, albums"
+            autocomplete="off"
+          />
+          <button class="button" type="submit">Search</button>
+        </form>
+
+        <div id="results" class="results"></div>
+      </section>
+    </main>
+  </body>
+</html>
