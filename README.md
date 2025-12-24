@@ -11,10 +11,11 @@ A minimal Express + Spotify Web Playback SDK app that lets you search and play t
 1. Create a Spotify app at https://developer.spotify.com/dashboard
 2. Add this redirect URI in the app settings:
    - http://localhost:3000/callback
-3. Copy `.env.example` to `.env` and fill in your credentials.
+3. Copy `backend/.env.example` to `backend/.env` and fill in your credentials.
 
 ## Run (Node.js)
 ```bash
+cd backend
 npm install
 npm start
 ```
@@ -22,6 +23,7 @@ Then open http://localhost:3000
 
 ## Run (Python)
 ```bash
+cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt

@@ -1,7 +1,7 @@
 const crypto = require("crypto");
 const express = require("express");
 const path = require("path");
-require("dotenv").config();
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -9,6 +9,7 @@ const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
 const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 const REDIRECT_URI =
   process.env.SPOTIFY_REDIRECT_URI || `http://localhost:${PORT}/callback`;
+const FRONTEND_DIR = path.join(__dirname, "..", "frontend");
 
 const SCOPES = [
   "streaming",
@@ -24,7 +25,7 @@ let accessTokenExpiresAt = 0;
 let oauthState = null;
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(FRONTEND_DIR));
 
 if (!CLIENT_ID || !CLIENT_SECRET) {
   console.warn(

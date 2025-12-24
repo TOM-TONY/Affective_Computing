@@ -8,10 +8,10 @@ import requests
 from dotenv import load_dotenv
 from flask import Flask, jsonify, redirect, request, send_from_directory
 
-load_dotenv()
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PUBLIC_DIR = os.path.join(BASE_DIR, "public")
+load_dotenv(os.path.join(BASE_DIR, ".env"))
+
+PUBLIC_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "frontend"))
 
 CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
