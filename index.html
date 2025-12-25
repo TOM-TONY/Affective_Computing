@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PaceMood</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* --- デザイン (Dark Mode) --- */
+        :root {
+            --bg-main: #121212;
+            --bg-card: #1e1e1e;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --accent-green: #4caf50;
+            --accent-red: #f44336;
+            --accent-blue: #2196f3;
+            --accent-yellow: #ffc107;
+            --btn-bg: #2c2c2c;
+            
+            /* グラフ用の色 */
+            --graph-line: #fdd835; /* 黄色っぽい線 (Pace) */
+            --graph-fill-top: rgba(33, 150, 243, 0.6); /* 青 (Mood) */
+            --graph-fill-bottom: rgba(33, 150, 243, 0.1);
+        }
+
+        body {
+            margin: 0; padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; overflow: hidden;
+        }
+
+        .app-container {
+            width: 375px; height: 812px;
+            background-color: var(--bg-main);
+            border-radius: 30px; overflow: hidden; position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5); border: 1px solid #333;
+        }
+
+        /* 画面共通 */
+        .screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            padding: 30px 20px; box-sizing: border-box;
+            display: flex; flex-direction: column;
+            transition: opacity 0.3s ease-in-out; opacity: 0; pointer-events: none; z-index: 1;
+        }
+        .screen.active { opacity: 1; pointer-events: auto; z-index: 2; }
+
+        /* Setup Screen */
+        #setup-screen { justify-content: center; text-align: center; }
+        .mood-buttons { display: flex; flex-direction: column; gap: 15px; width: 100%; margin: 30px 0; }
+        .btn-mood {
+            background-color: var(--btn-bg); color: var(--text-primary);
+            border: 2px solid transparent; padding: 20px; border-radius: 15px;
+            font-size: 1.1rem; cursor: pointer; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+        }
+        .btn-mood.selected { border-color: var(--accent-blue); background-color: #1976d2; }
+        .btn-start {
+            background-color: var(--accent-green); color: white; border: none;
+            padding: 15px; border-radius: 50px; font-size: 1.2rem; font-weight: bold;
+            width: 100%; cursor: pointer; margin-top: 20px;
+        }
+        .btn-start:disabled { background-color: #555; cursor: not-allowed; }
+
+        /* Player Screen Header */
+        #player-screen { padding-top: 20px; }
+        .header-info { 
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 10px; padding: 0 5px;
+        }
+        .bpm-display { font-size: 1.1rem; font-weight: bold; color: var(--text-primary); }
+        .time-display { font-size: 1.1rem; font-weight: bold; color: var(--text-primary); }
+
+        /* --- Graph Area (NEW) --- */
+        .graph-area {
+            background: linear-gradient(180deg, rgba(40,40,40,0.5) 0%, rgba(20,20,20,0.5) 100%);
+            border-radius: 20px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+            position: relative;
+        }
+        .graph-title {
+            font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px;
+            text-align: center;
+        }
+        .graph-svg {
+            width: 100%; height: 100px;
+            overflow: visible;
+        }
+        /* グラフの軸ラベル */
+        .axis-label {
+            position: absolute; font-size: 0.6rem; color: #666;
+        }
+        .label-y-top { top: 40px; right: 10px; }
+        .label-y-bottom { bottom: 15px; right: 10px; }
+        .label-x-start { bottom: 0px; left: 10px; }
+        .label-x-end { bottom: 0px; right: 10px; }
+
+        /* Album Art & Controls */
+        .album-art {
+            width: 100%; aspect-ratio: 1;
+            background: #333; border-radius: 20px; margin-bottom: 15px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 3rem; color: #555;
+            background-size: cover; background-position: center; transition: background 0.5s;
+            max-height: 280px; /* グラフが入った分、高さを調整 */
+        }
+        
+        .track-info { margin-bottom: 10px; }
+        .track-title { margin: 0; font-size: 1.3rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .artist-name { margin: 5px 0 0; color: var(--text-secondary); }
+
+        .ai-comment {
+            background: var(--btn-bg); padding: 12px; border-radius: 15px;
+            font-size: 0.85rem; line-height: 1.3; display: flex; gap: 10px; align-items: center;
+            min-height: 50px; margin-bottom: 10px;
+        }
+
+        .controls {
+            display: flex; justify-content: center; align-items: center; gap: 40px;
+            margin-top: auto; padding-bottom: 30px;
+        }
+        .btn-control {
+            background: none; border: none; color: white; cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .btn-control:active { transform: scale(0.9); }
+        .btn-play { font-size: 3.5rem; }
+        .btn-skip { font-size: 2rem; color: var(--text-secondary); }
+
+        /* Overlay */
+        .overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); z-index: 100;
+            display: flex; align-items: flex-end;
+            transition: opacity 0.3s, visibility 0.3s;
+            opacity: 0; visibility: hidden;
+        }
+        .overlay.visible { opacity: 1; visibility: visible; }
+        
+        .feedback-card {
+            background: var(--bg-card); width: 100%;
+            border-radius: 30px 30px 0 0; padding: 30px 20px; text-align: center;
+            transform: translateY(100%); transition: transform 0.3s;
+        }
+        .overlay.visible .feedback-card { transform: translateY(0); }
+
+        .feedback-btns { display: flex; gap: 15px; margin-top: 20px; }
+        .btn-fb {
+            flex: 1; padding: 20px; border: none; border-radius: 15px;
+            font-size: 1.1rem; font-weight: bold; cursor: pointer;
+        }
+        .fb-good { background: var(--accent-green); color: white; }
+        .fb-change { background: var(--accent-red); color: white; }
+
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div id="setup-screen" class="screen active">
+        <h1>PaceMode</h1>
+        <p style="color:var(--text-secondary)">今の気分を教えてください<br>(Tell me your current mood)</p>
+        
+        <div class="mood-buttons">
+            <button class="btn-mood" onclick="selectMood('Energetic', this)">
+                <i class="fa-solid fa-fire"></i> 元気 (Energetic)
+            </button>
+            <button class="btn-mood" onclick="selectMood('Chill', this)">
+                <i class="fa-solid fa-coffee"></i> 普通 (Chill)
+            </button>
+            <button class="btn-mood" onclick="selectMood('Stressed', this)">
+                <i class="fa-solid fa-cloud-rain"></i> 落ち着きたい (Stressed)
+            </button>
+        </div>
+
+        <button id="btn-start" class="btn-start" onclick="startApp()" disabled>Start Music</button>
+    </div>
+
+    <div id="player-screen" class="screen">
+        
+        <div class="header-info">
+            <div class="bpm-display">Pace: <span id="bpm-val">110</span> BPM</div>
+            <div class="time-display" id="timer-val">00:00</div>
+        </div>
+
+        <div class="graph-area">
+            <div class="graph-title">Pace & Mood History</div>
+            
+            <svg class="graph-svg" viewBox="0 0 300 100" preserveAspectRatio="none">
+                <defs>
+                    <linearGradient id="moodGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="var(--graph-fill-top)"/>
+                        <stop offset="100%" stop-color="var(--graph-fill-bottom)"/>
+                    </linearGradient>
+                </defs>
+                
+                <line x1="0" y1="20" x2="300" y2="20" stroke="#333" stroke-width="1" />
+                <line x1="0" y1="50" x2="300" y2="50" stroke="#333" stroke-width="1" />
+                <line x1="0" y1="80" x2="300" y2="80" stroke="#333" stroke-width="1" />
+
+                <path d="M0,80 C50,60 100,90 150,50 S250,20 300,30 V100 H0 Z" 
+                      fill="url(#moodGradient)" stroke="none" />
+                
+                <path d="M0,70 C50,50 100,80 150,40 S250,30 300,50" 
+                      fill="none" stroke="var(--graph-line)" stroke-width="3" stroke-linecap="round" />
+
+                <circle cx="220" cy="35" r="5" fill="#fff" stroke="var(--graph-line)" stroke-width="2">
+                    <animate attributeName="r" values="5;7;5" dur="2s" repeatCount="indefinite" />
+                </circle>
+                <line x1="220" y1="0" x2="220" y2="100" stroke="rgba(255,255,255,0.3)" stroke-dasharray="4" />
+            </svg>
+
+            <span class="axis-label label-y-top">Comfort</span>
+            <span class="axis-label label-y-bottom">Discomfort</span>
+            <span class="axis-label label-x-start">Start</span>
+            <span class="axis-label label-x-end">Now</span>
+        </div>
+
+        <div class="album-art" id="album-art-div">
+            <i class="fa-solid fa-music"></i>
+        </div>
+
+        <div class="track-info">
+            <h2 class="track-title" id="track-title">Ready...</h2>
+            <p class="artist-name" id="artist-name">AI DJ Select</p>
+        </div>
+
+        <div class="ai-comment">
+            <i class="fa-solid fa-robot" style="color:var(--accent-blue)"></i>
+            <span id="ai-text">AI選曲中...</span>
+        </div>
+
+        <div class="controls">
+            <button class="btn-control btn-skip" style="opacity:0.5"><i class="fa-solid fa-backward-step"></i></button>
+            <button class="btn-control btn-play" onclick="togglePlay()"><i class="fa-solid fa-pause" id="play-icon"></i></button>
+            <button class="btn-control btn-skip" onclick="nextTrack()"><i class="fa-solid fa-forward-step"></i></button>
+        </div>
+    </div>
+
+    <div id="feedback-overlay" class="overlay">
+        <div class="feedback-card">
+            <h3>今の曲とペースはどうですか？<br>(How is the current song & pace?)</h3>
+            <div class="feedback-btns">
+                <button class="btn-fb fb-good" onclick="handleFeedback('good')">
+                    <i class="fa-solid fa-thumbs-up"></i> Good (このまま)
+                </button>
+                <button class="btn-fb fb-change" onclick="handleFeedback('change')">
+                    <i class="fa-solid fa-thumbs-down"></i> Change (変えたい)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* =========================================
+       設定エリア
+    ========================================= */
+    const FEEDBACK_INTERVAL = 10 * 60 * 1000; // 本番用は10分
+
+    const MUSIC_LIST = {
+        'Energetic': [
+            { file: 'music/energetic1.mp3', title: 'Power Walk Anthem', artist: 'The Runners', color: 'linear-gradient(45deg, #ff9a9e 0%, #fecfef 100%)', comment: '元気に行きましょう！テンポアップ！🔥' },
+            { file: 'music/energetic2.mp3', title: 'Runner High', artist: 'Speed Masters', color: 'linear-gradient(45deg, #fa709a 0%, #fee140 100%)', comment: 'いいペースです！このまま駆け抜けましょう！💨' }
+        ],
+        'Chill': [
+            { file: 'music/chill.mp3', title: 'Sunday Morning', artist: 'Lo-Fi Beats', color: 'linear-gradient(120deg, #a1c4fd 0%, #c2e9fb 100%)', comment: 'リラックスして、風景を楽しみながら☕' }
+        ],
+        'Stressed': [
+            { file: 'music/calm.mp3', title: 'Forest Sounds', artist: 'Nature Healing', color: 'linear-gradient(to top, #cfd9df 0%, #e2ebf0 100%)', comment: '深呼吸しましょう。無理は禁物です🌲' }
+        ]
+    };
+
+    /* =========================================
+       ロジック
+    ========================================= */
+    
+    let currentMood = null;
+    let currentTrackIndex = 0;
+    let audioPlayer = new Audio();
+    let walkTimerInterval = null; // タイマーID管理用
+    let feedbackTimerTimeout;
+    let secondsElapsed = 0;
+    let isPlaying = false;
+
+    // --- 気分選択 ---
+    function selectMood(mood, btnElement) {
+        currentMood = mood;
+        document.querySelectorAll('.btn-mood').forEach(b => b.classList.remove('selected'));
+        btnElement.classList.add('selected');
+        document.getElementById('btn-start').disabled = false;
+    }
+
+    // --- 開始 ---
+    function startApp() {
+        if(!currentMood) return;
+        document.getElementById('setup-screen').classList.remove('active');
+        document.getElementById('player-screen').classList.add('active');
+
+        currentTrackIndex = 0;
+        playTrack(currentTrackIndex);
+
+        // アプリ開始時にタイマーもスタート
+        startWalkTimer();
+        scheduleNextFeedback();
+    }
+
+    // --- 再生処理 ---
+    function playTrack(index) {
+        const playlist = MUSIC_LIST[currentMood];
+        if (index >= playlist.length) currentTrackIndex = 0;
+        else currentTrackIndex = index;
+
+        const track = playlist[currentTrackIndex];
+
+        document.getElementById('track-title').innerText = track.title;
+        document.getElementById('artist-name').innerText = track.artist;
+        document.getElementById('ai-text').innerText = track.comment;
+        document.getElementById('album-art-div').style.background = track.color;
+
+        audioPlayer.src = track.file;
+        audioPlayer.loop = true; 
+        audioPlayer.play().then(() => {
+            setPlayingState(true);
+        }).catch(e => {
+            console.log("再生エラー:", e);
+            document.getElementById('ai-text').innerText = "⚠️ファイルが見つかりません: " + track.file;
+        });
+    }
+
+    function nextTrack() {
+        currentTrackIndex++;
+        playTrack(currentTrackIndex);
+    }
+
+    // --- 再生/一時停止 と タイマー連動の修正 ---
+    function togglePlay() {
+        if (isPlaying) {
+            // 停止処理
+            audioPlayer.pause();
+            setPlayingState(false);
+            stopWalkTimer(); // タイマーも止める
+        } else {
+            // 再開処理
+            audioPlayer.play();
+            setPlayingState(true);
+            startWalkTimer(); // タイマー再開
+        }
+    }
+
+    // 状態管理用のヘルパー関数
+    function setPlayingState(state) {
+        isPlaying = state;
+        const icon = document.getElementById('play-icon');
+        const art = document.getElementById('album-art-div');
+        
+        if (isPlaying) {
+            icon.classList.remove('fa-play');
+            icon.classList.add('fa-pause');
+            art.classList.add('playing-art'); // 脈打つアニメーション
+        } else {
+            icon.classList.remove('fa-pause');
+            icon.classList.add('fa-play');
+            art.classList.remove('playing-art');
+        }
+    }
+
+    // --- タイマーロジック (Start / Stop) ---
+    function startWalkTimer() {
+        // 多重起動防止
+        if (walkTimerInterval) return;
+
+        walkTimerInterval = setInterval(() => {
+            secondsElapsed++;
+            const m = Math.floor(secondsElapsed / 60).toString().padStart(2, '0');
+            const s = (secondsElapsed % 60).toString().padStart(2, '0');
+            document.getElementById('timer-val').innerText = `${m}:${s}`;
+            
+            // ランダムBPM (停止中は更新しないロジックにするならここも制御可能だが、センサー値なので動いていても良い)
+            const randomBpm = 110 + Math.floor(Math.random() * 10 - 5);
+            document.getElementById('bpm-val').innerText = randomBpm;
+        }, 1000);
+    }
+
+    function stopWalkTimer() {
+        if (walkTimerInterval) {
+            clearInterval(walkTimerInterval);
+            walkTimerInterval = null;
+        }
+    }
+
+    // --- アンケート関連 ---
+    function scheduleNextFeedback() {
+        if(feedbackTimerTimeout) clearTimeout(feedbackTimerTimeout);
+        feedbackTimerTimeout = setTimeout(() => {
+            showFeedbackOverlay();
+        }, FEEDBACK_INTERVAL);
+    }
+
+    function showFeedbackOverlay() {
+        document.getElementById('feedback-overlay').classList.add('visible');
+        if (navigator.vibrate) navigator.vibrate(200);
+    }
+
+    function handleFeedback(type) {
+        document.getElementById('feedback-overlay').classList.remove('visible');
+        if (type === 'good') {
+            document.getElementById('ai-text').innerText = "Thanks! この調子でいきましょう👍";
+        } else {
+            document.getElementById('ai-text').innerText = "了解。曲調を変えてみますね...🔄";
+            setTimeout(() => { nextTrack(); }, 500);
+        }
+        scheduleNextFeedback();
+    }
+</script>
+</body>
+</html>
