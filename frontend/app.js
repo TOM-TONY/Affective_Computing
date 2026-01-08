@@ -1,3 +1,8 @@
+let normData = [];
+let intervalData = [];
+let spmHistory = [];
+let currentSongBpm = 0;
+const NUM_DATA_PER_FRAME = 200; 
 const loginSection = document.getElementById("login");
 const appSection = document.getElementById("app");
 const statusEl = document.getElementById("status");
@@ -318,3 +323,98 @@ window.onSpotifyWebPlaybackSDKReady = () => {
 document.addEventListener("DOMContentLoaded", () => {
   checkSession();
 });
+
+// --- センサー開始関数 ---
+function startSensor() {
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission().then(state => {
+            if (state === 'granted') {
+                window.addEventListener("devicemotion", handleAcceleration);
+                console.log("Sensor started");
+            }
+        });
+    } else {
+        window.addEventListener("devicemotion", handleAcceleration);
+    }
+    
+    // 5秒ごとにバックエンドから曲のBPMを更新
+    setInterval(updateSongBpm, 5000);
+}
+
+// --- 加速度センサーの処理 ---
+function handleAcceleration(ev) {
+    const acc = ev.acceleration;
+    if (!acc || acc.x === null) return;
+
+    const norm = Math.sqrt(acc.x ** 2 + acc.y ** 2 + acc.z ** 2);
+    normData.push(norm);
+    intervalData.push(ev.interval || 20);
+
+    if (normData.length >= NUM_DATA_PER_FRAME) {
+        const totalDurationMs = intervalData.reduce((a, b) => a + b, 0);
+        const spm = calculateSPM(normData, totalDurationMs);
+        
+        // UI更新ロジック
+        updateSyncDisplay(spm);
+
+        normData = [];
+        intervalData = [];
+    }
+}
+
+// --- SPM（ペース）計算 ---
+function calculateSPM(data, durationMs) {
+    const avg = data.reduce((a, b) => a + b, 0) / data.length;
+    const variance = data.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / data.length;
+    if (variance < 0.1) return 0; // 止まっていると判断
+
+    const stdDev = Math.sqrt(variance);
+    const threshold = avg + (0.7 * stdDev);
+    let steps = 0;
+    let cross = false;
+
+    for (let i = 1; i < data.length; i++) {
+        if (data[i] > threshold && !cross) { steps++; cross = true; }
+        else if (data[i] < threshold) { cross = false; }
+    }
+
+    const rawSpm = Math.round((steps / (durationMs / 1000)) * 60);
+    spmHistory.push(rawSpm);
+    if (spmHistory.length > 3) spmHistory.shift();
+    return Math.round(spmHistory.reduce((a, b) => a + b) / spmHistory.length);
+}
+
+// --- Spotify BPM取得 ---
+async function updateSongBpm() {
+    try {
+        const res = await fetch('/api/current-track-bpm');
+        const data = await res.json();
+        if (data.bpm) {
+            currentSongBpm = data.bpm;
+            if (document.getElementById('bpm-val')) {
+                document.getElementById('bpm-val').innerText = currentSongBpm;
+            }
+        }
+    } catch (e) { console.error(e); }
+}
+
+// --- Sync率の計算と表示更新 ---
+function updateSyncDisplay(spm) {
+    // 自分のペースを表示 (index.htmlにあるIDに合わせる)
+    const spmEl = document.getElementById('current-spm');
+    if (spmEl) spmEl.innerText = spm;
+
+    if (spm > 0 && currentSongBpm > 0) {
+        const diff = Math.abs(spm - currentSongBpm);
+        const syncRate = Math.max(0, 100 - diff);
+        
+        const syncEl = document.getElementById('sync-rate');
+        if (syncEl) syncEl.innerText = Math.round(syncRate) + "%";
+
+        // 90%以上の同期でエフェクト（任意）
+        const circle = document.getElementById('sync-circle');
+        if (circle) {
+            circle.style.borderColor = syncRate > 90 ? "#1DB954" : "#333";
+        }
+    }
+}

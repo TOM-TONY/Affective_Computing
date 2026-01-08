@@ -186,7 +186,14 @@
         
         <div class="header-info">
             <div class="bpm-display">Pace: <span id="bpm-val">110</span> BPM</div>
+            <div class="spm-display">Pace: <span id="current-spm">0</span> SPM</div>
             <div class="time-display" id="timer-val">00:00</div>
+            <div class="sync-display" id="sync-circle" style="padding: 0 10px; border-left: 1px solid #444; border-right: 1px solid #444;">
+                Sync: <span id="sync-rate">0%</span>
+            </div>
+            <button onclick="startSensor()" style="display: block; margin: 15px auto; padding: 10px 20px; background: #1DB954; color: white; border: none; border-radius: 20px; font-weight: bold; cursor: pointer;">
+                センサーを開始する
+            </button>
         </div>
 
         <div class="graph-area">

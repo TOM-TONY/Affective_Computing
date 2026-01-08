@@ -303,6 +303,19 @@ def play():
 def static_files(filename):
     return send_from_directory(PUBLIC_DIR, filename)
 
+@app.get("/api/current-track-bpm")
+def get_current_track_bpm():
+    try:
+        token_value = get_access_token()
+        playback = spotify_fetch("/v1/me/player", token_value)
+        if not playback or "item" not in playback or not playback["item"]:
+            return jsonify({"bpm": 0, "name": "None"})
+
+        track_id = playback["item"]["id"]
+        features = spotify_fetch(f"/v1/audio-features/{track_id}", token_value)
+        return jsonify({"bpm": round(features.get("tempo", 0))})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     if not CLIENT_ID or not CLIENT_SECRET:
